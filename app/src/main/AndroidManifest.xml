@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:allowBackup="false"
+        android:label="LeanType Offline AI Plugin"
+        android:hasCode="true">
+        <meta-data
+            android:name="helium314.keyboard.ai.plugin.INTERFACE_VERSION"
+            android:value="1" />
+        <meta-data
+            android:name="helium314.keyboard.ai.plugin.PROVIDER_CLASS"
+            android:value="helium314.keyboard.ai.plugin.OfflineAiProviderImpl" />
+    </application>
+</manifest>
