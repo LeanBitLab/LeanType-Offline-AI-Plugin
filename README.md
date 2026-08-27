@@ -9,8 +9,8 @@ A dynamic plugin for the [LeanType Keyboard](https://github.com/LeanBitLab/LeanT
 - **🧠 100% On-Device AI**: Local inference powered by optimized `llama.cpp` ARM64/x86_64 JNI binaries.
 - **🛡️ Zero Internet & Complete Privacy**: Runs entirely offline with zero network connectivity or external telemetry.
 - **⚡ Fast Neural Proofreading & Grammar Correction**: Correct spelling, fix punctuation, and refine writing with local GGUF models (e.g. Qwen2.5, Gemma 2, Llama 3, SmolLM).
+- **🔒 Designed for Offline Editions**: Built specifically for **LeanType Offline** and **Offline Lite** flavors with zero internet permissions (Online flavors use built-in Cloud AI).
 - **📦 Dynamic Isolated Architecture**: Loaded on-demand via `DexClassLoader` with isolated native libraries and zero footprint when inactive.
-- **🔄 Universal Compatibility**: Compatible across **all 4 LeanType flavors** (`Standard`, `Standard Full`, `Offline`, and `Offline Lite`).
 
 ---
 
@@ -28,14 +28,8 @@ At runtime, LeanType loads this plugin dynamically via `OfflineAiLoader` and `Pl
 
 ---
 
-## 📥 Installation & Setup
+## 📥 Installation & Setup (Offline & Offline Lite Flavors)
 
-### Option 1: In-App Downloader (Online Flavors)
-1. In LeanType, open **Settings → Plugins**.
-2. Tap **Offline AI** and tap **Download Plugin** to automatically fetch and activate the latest release.
-3. Select your local `.gguf` model file from device storage.
-
-### Option 2: Manual Loading (Offline & Offline Lite Flavors)
 1. Download `ai_plugin-arm64-v8a.apk` (or `ai_plugin-x86_64.apk`) from the [Latest Releases](https://github.com/LeanBitLab/LeanType-Offline-AI-Plugin/releases/latest).
 2. In LeanType, navigate to **Settings → Plugins**.
 3. Tap **Load Offline AI plugin** and select the downloaded `.apk` file.
