@@ -20,6 +20,15 @@ A dynamic plugin for the [LeanType Keyboard](https://github.com/LeanBitLab/LeanT
 
 ---
 
+## 📋 System Requirements
+
+- **Operating System**: Android 7.0 (API 24) or higher
+- **Supported CPU Architectures**: `arm64-v8a` (64-bit ARM), `x86_64` (64-bit x86)
+- **Host Keyboard**: [LeanType](https://github.com/LeanBitLab/LeanType) v4.1.6+ (Offline or Offline Lite flavors)
+- **RAM**: Recommended 3 GB+ RAM for 0.5B–1.5B GGUF models
+
+---
+
 ## 🛠️ How it Works
 
 To maintain a lightweight ~9.8 MB core keyboard, the heavy local LLM inference engine and JNI shared libraries (`libllama.so`) are isolated into this dynamic plugin.
