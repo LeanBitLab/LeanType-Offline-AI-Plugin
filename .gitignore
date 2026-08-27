@@ -6,3 +6,6 @@
 /build
 */build
 *.apk
+keystore.properties
+*.jks
+*.keystore
