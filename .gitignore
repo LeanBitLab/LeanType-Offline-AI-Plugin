@@ -9,3 +9,6 @@
 keystore.properties
 *.jks
 *.keystore
+.antigravity/
+.antigravityignore
+plugin-release.jks
