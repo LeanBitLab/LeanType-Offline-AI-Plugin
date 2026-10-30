@@ -32,9 +32,12 @@ class OfflineAiProviderImpl : IOfflineAiProvider {
 
     private val scope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
     private val llmFlow = MutableSharedFlow<LlamaHelper.LLMEvent>(
-        extraBufferCapacity = 64,
+        extraBufferCapacity = 2048,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
+
+    @Volatile
+    private var lastInferenceError: String? = null
 
     override fun getInterfaceVersion(): Int = 1
 
@@ -158,36 +161,16 @@ class OfflineAiProviderImpl : IOfflineAiProvider {
     override fun generate(prompt: String, params: Map<String, Any>?): String {
         val helper = llamaHelper ?: throw IllegalStateException("Model not loaded in AI plugin")
 
-        val generatedText = StringBuilder()
-        var errorMessage: String? = null
-
         val temp = (params?.get("temperature") as? Number)?.toFloat() ?: 0.2f
         val topP = (params?.get("top_p") as? Number)?.toFloat() ?: 0.95f
         val topK = (params?.get("top_k") as? Number)?.toInt() ?: 40
         val minP = (params?.get("min_p") as? Number)?.toFloat() ?: 0.05f
-        val maxTokens = (params?.get("max_tokens") as? Number)?.toInt() ?: 256
+        val maxTokens = (params?.get("max_tokens") as? Number)?.toInt() ?: 1024
+
+        var resultText = ""
 
         runBlocking {
-            val eventJob = launch {
-                helper.sharedFlow.takeWhile { event ->
-                    when (event) {
-                        is LlamaHelper.LLMEvent.Ongoing -> {
-                            generatedText.append(event.word)
-                            true
-                        }
-                        is LlamaHelper.LLMEvent.Done -> {
-                            false
-                        }
-                        is LlamaHelper.LLMEvent.Error -> {
-                            errorMessage = event.toString()
-                            false
-                        }
-                        else -> true
-                    }
-                }.collect {}
-            }
-
-            predictWithParams(
+            val job = predictWithParams(
                 helper = helper,
                 prompt = prompt,
                 temp = temp,
@@ -197,27 +180,37 @@ class OfflineAiProviderImpl : IOfflineAiProvider {
                 maxTokens = maxTokens
             )
 
-            eventJob.join()
+            job?.join()
+
+            try {
+                val allTextField = LlamaHelper::class.java.getDeclaredField("allText").apply { isAccessible = true }
+                resultText = (allTextField.get(helper) as? String) ?: ""
+            } catch (e: Throwable) {
+                Log.w(TAG, "Failed to read allText from helper", e)
+            }
         }
 
-        if (errorMessage != null) {
-            throw RuntimeException("Inference error: $errorMessage")
+        val err = lastInferenceError
+        if (err != null) {
+            throw RuntimeException("Inference error: $err")
         }
-        return generatedText.toString().trim()
+        return resultText.trim()
     }
 
     override fun proofread(text: String, instruction: String?): String {
         if (text.isBlank()) return text
         val instr = instruction ?: "Fix grammar, spelling, and punctuation errors. Return ONLY the corrected text without preamble."
         val prompt = "<|im_start|>system\nYou are a professional proofreader. Correct grammatical, spelling, and punctuation errors while preserving original formatting.<|im_end|>\n<|im_start|>user\nInstruction: $instr\nText: $text<|im_end|>\n<|im_start|>assistant\n"
-        val out = generate(prompt, mapOf("temperature" to 0.1, "max_tokens" to 512))
+        val tokensNeeded = maxOf(512, (text.length / 2.5).toInt() + 128)
+        val out = generate(prompt, mapOf("temperature" to 0.1, "max_tokens" to tokensNeeded))
         return cleanOutput(out)
     }
 
     override fun translate(text: String, sourceLang: String, targetLang: String): String {
         if (text.isBlank()) return text
         val prompt = "<|im_start|>system\nYou are a professional translator. Translate from $sourceLang to $targetLang. Output ONLY the translation without preamble.<|im_end|>\n<|im_start|>user\nText: $text<|im_end|>\n<|im_start|>assistant\n"
-        val out = generate(prompt, mapOf("temperature" to 0.2, "max_tokens" to 512))
+        val tokensNeeded = maxOf(512, (text.length / 2.5).toInt() + 128)
+        val out = generate(prompt, mapOf("temperature" to 0.2, "max_tokens" to tokensNeeded))
         return cleanOutput(out)
     }
 
@@ -238,7 +231,8 @@ class OfflineAiProviderImpl : IOfflineAiProvider {
         topK: Int,
         minP: Float,
         maxTokens: Int
-    ) {
+    ): Job? {
+        lastInferenceError = null
         try {
             val currentContextField = LlamaHelper::class.java.getDeclaredField("currentContext").apply { isAccessible = true }
             val currentContext = currentContextField.get(helper) as? Int ?: throw IllegalStateException("Model context not ready")
@@ -274,6 +268,7 @@ class OfflineAiProviderImpl : IOfflineAiProvider {
                     llama.launchCompletion(currentContext, params)
                 } catch (e: Throwable) {
                     Log.e(TAG, "Completion failed", e)
+                    lastInferenceError = e.message ?: e.toString()
                     helper.sharedFlow.tryEmit(LlamaHelper.LLMEvent.Error("Completion failed: ${e.message}"))
                     return@launch
                 }
@@ -283,9 +278,12 @@ class OfflineAiProviderImpl : IOfflineAiProvider {
                 helper.sharedFlow.tryEmit(LlamaHelper.LLMEvent.Done(allText, tokenCount, duration))
             }
             completionJobField.set(helper, job)
+            return job
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to setup prediction", e)
+            lastInferenceError = e.message ?: e.toString()
             helper.sharedFlow.tryEmit(LlamaHelper.LLMEvent.Error("Failed to setup prediction: ${e.message}"))
+            return null
         }
     }
 
